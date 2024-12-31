@@ -22,15 +22,15 @@ import {
     ModelClass,
     type State,
     composeContext,
-    generateObjectV2,
+    generateObject,
     elizaLogger,
     stringToUuid
-} from "@ai16z/eliza";
+} from "@elizaos/core";
 import { PublicKey, Keypair, Connection, VersionedTransaction } from "@solana/web3.js";
-import { AutoClient } from "@ai16z/client-auto";
+import { AutoClient } from "@elizaos/client-auto";
 import { loadTokenAddresses } from "./tokenUtils";
-import { TwitterClientInterface } from "@ai16z/client-twitter";
-import { TokenProvider, ProcessedTokenData } from "@ai16z/plugin-solana";
+import { TwitterClientInterface } from "@elizaos/client-twitter";
+import { TokenProvider } from "@elizaos/plugin-solana";
 
 /**
  * Safety limits and trading parameters
@@ -45,6 +45,308 @@ const SAFETY_LIMITS = {
     CHECK_INTERVAL: 5 * 60 * 1000,  // Check every 5 minutes
     MIN_WALLET_BALANCE: 0.05,   // Keep minimum 0.05 SOL in wallet
 };
+
+interface TokenSecurityData {
+    ownerBalance: string;
+    creatorBalance: string;
+    ownerPercentage: number;
+    creatorPercentage: number;
+    top10HolderBalance: string;
+    top10HolderPercent: number;
+}
+interface TokenCodex {
+    id: string;
+    address: string;
+    cmcId: number;
+    decimals: number;
+    name: string;
+    symbol: string;
+    totalSupply: string;
+    circulatingSupply: string;
+    imageThumbUrl: string;
+    blueCheckmark: boolean;
+    isScam: boolean;
+}
+interface TokenTradeData {
+    address: string;
+    holder: number;
+    market: number;
+    last_trade_unix_time: number;
+    last_trade_human_time: string;
+    price: number;
+    history_30m_price: number;
+    price_change_30m_percent: number;
+    history_1h_price: number;
+    price_change_1h_percent: number;
+    history_2h_price: number;
+    price_change_2h_percent: number;
+    history_4h_price: number;
+    price_change_4h_percent: number;
+    history_6h_price: number;
+    price_change_6h_percent: number;
+    history_8h_price: number;
+    price_change_8h_percent: number;
+    history_12h_price: number;
+    price_change_12h_percent: number;
+    history_24h_price: number;
+    price_change_24h_percent: number;
+    unique_wallet_30m: number;
+    unique_wallet_history_30m: number;
+    unique_wallet_30m_change_percent: number;
+    unique_wallet_1h: number;
+    unique_wallet_history_1h: number;
+    unique_wallet_1h_change_percent: number;
+    unique_wallet_2h: number;
+    unique_wallet_history_2h: number;
+    unique_wallet_2h_change_percent: number;
+    unique_wallet_4h: number;
+    unique_wallet_history_4h: number;
+    unique_wallet_4h_change_percent: number;
+    unique_wallet_8h: number;
+    unique_wallet_history_8h: number | null;
+    unique_wallet_8h_change_percent: number | null;
+    unique_wallet_24h: number;
+    unique_wallet_history_24h: number | null;
+    unique_wallet_24h_change_percent: number | null;
+    trade_30m: number;
+    trade_history_30m: number;
+    trade_30m_change_percent: number;
+    sell_30m: number;
+    sell_history_30m: number;
+    sell_30m_change_percent: number;
+    buy_30m: number;
+    buy_history_30m: number;
+    buy_30m_change_percent: number;
+    volume_30m: number;
+    volume_30m_usd: number;
+    volume_history_30m: number;
+    volume_history_30m_usd: number;
+    volume_30m_change_percent: number;
+    volume_buy_30m: number;
+    volume_buy_30m_usd: number;
+    volume_buy_history_30m: number;
+    volume_buy_history_30m_usd: number;
+    volume_buy_30m_change_percent: number;
+    volume_sell_30m: number;
+    volume_sell_30m_usd: number;
+    volume_sell_history_30m: number;
+    volume_sell_history_30m_usd: number;
+    volume_sell_30m_change_percent: number;
+    trade_1h: number;
+    trade_history_1h: number;
+    trade_1h_change_percent: number;
+    sell_1h: number;
+    sell_history_1h: number;
+    sell_1h_change_percent: number;
+    buy_1h: number;
+    buy_history_1h: number;
+    buy_1h_change_percent: number;
+    volume_1h: number;
+    volume_1h_usd: number;
+    volume_history_1h: number;
+    volume_history_1h_usd: number;
+    volume_1h_change_percent: number;
+    volume_buy_1h: number;
+    volume_buy_1h_usd: number;
+    volume_buy_history_1h: number;
+    volume_buy_history_1h_usd: number;
+    volume_buy_1h_change_percent: number;
+    volume_sell_1h: number;
+    volume_sell_1h_usd: number;
+    volume_sell_history_1h: number;
+    volume_sell_history_1h_usd: number;
+    volume_sell_1h_change_percent: number;
+    trade_2h: number;
+    trade_history_2h: number;
+    trade_2h_change_percent: number;
+    sell_2h: number;
+    sell_history_2h: number;
+    sell_2h_change_percent: number;
+    buy_2h: number;
+    buy_history_2h: number;
+    buy_2h_change_percent: number;
+    volume_2h: number;
+    volume_2h_usd: number;
+    volume_history_2h: number;
+    volume_history_2h_usd: number;
+    volume_2h_change_percent: number;
+    volume_buy_2h: number;
+    volume_buy_2h_usd: number;
+    volume_buy_history_2h: number;
+    volume_buy_history_2h_usd: number;
+    volume_buy_2h_change_percent: number;
+    volume_sell_2h: number;
+    volume_sell_2h_usd: number;
+    volume_sell_history_2h: number;
+    volume_sell_history_2h_usd: number;
+    volume_sell_2h_change_percent: number;
+    trade_4h: number;
+    trade_history_4h: number;
+    trade_4h_change_percent: number;
+    sell_4h: number;
+    sell_history_4h: number;
+    sell_4h_change_percent: number;
+    buy_4h: number;
+    buy_history_4h: number;
+    buy_4h_change_percent: number;
+    volume_4h: number;
+    volume_4h_usd: number;
+    volume_history_4h: number;
+    volume_history_4h_usd: number;
+    volume_4h_change_percent: number;
+    volume_buy_4h: number;
+    volume_buy_4h_usd: number;
+    volume_buy_history_4h: number;
+    volume_buy_history_4h_usd: number;
+    volume_buy_4h_change_percent: number;
+    volume_sell_4h: number;
+    volume_sell_4h_usd: number;
+    volume_sell_history_4h: number;
+    volume_sell_history_4h_usd: number;
+    volume_sell_4h_change_percent: number;
+    trade_8h: number;
+    trade_history_8h: number | null;
+    trade_8h_change_percent: number | null;
+    sell_8h: number;
+    sell_history_8h: number | null;
+    sell_8h_change_percent: number | null;
+    buy_8h: number;
+    buy_history_8h: number | null;
+    buy_8h_change_percent: number | null;
+    volume_8h: number;
+    volume_8h_usd: number;
+    volume_history_8h: number;
+    volume_history_8h_usd: number;
+    volume_8h_change_percent: number | null;
+    volume_buy_8h: number;
+    volume_buy_8h_usd: number;
+    volume_buy_history_8h: number;
+    volume_buy_history_8h_usd: number;
+    volume_buy_8h_change_percent: number | null;
+    volume_sell_8h: number;
+    volume_sell_8h_usd: number;
+    volume_sell_history_8h: number;
+    volume_sell_history_8h_usd: number;
+    volume_sell_8h_change_percent: number | null;
+    trade_24h: number;
+    trade_history_24h: number;
+    trade_24h_change_percent: number | null;
+    sell_24h: number;
+    sell_history_24h: number;
+    sell_24h_change_percent: number | null;
+    buy_24h: number;
+    buy_history_24h: number;
+    buy_24h_change_percent: number | null;
+    volume_24h: number;
+    volume_24h_usd: number;
+    volume_history_24h: number;
+    volume_history_24h_usd: number;
+    volume_24h_change_percent: number | null;
+    volume_buy_24h: number;
+    volume_buy_24h_usd: number;
+    volume_buy_history_24h: number;
+    volume_buy_history_24h_usd: number;
+    volume_buy_24h_change_percent: number | null;
+    volume_sell_24h: number;
+    volume_sell_24h_usd: number;
+    volume_sell_history_24h: number;
+    volume_sell_history_24h_usd: number;
+    volume_sell_24h_change_percent: number | null;
+}
+interface HolderData {
+    address: string;
+    balance: string;
+}
+interface DexScreenerPair {
+    chainId: string;
+    dexId: string;
+    url: string;
+    pairAddress: string;
+    baseToken: {
+        address: string;
+        name: string;
+        symbol: string;
+    };
+    quoteToken: {
+        address: string;
+        name: string;
+        symbol: string;
+    };
+    priceNative: string;
+    priceUsd: string;
+    txns: {
+        m5: {
+            buys: number;
+            sells: number;
+        };
+        h1: {
+            buys: number;
+            sells: number;
+        };
+        h6: {
+            buys: number;
+            sells: number;
+        };
+        h24: {
+            buys: number;
+            sells: number;
+        };
+    };
+    volume: {
+        h24: number;
+        h6: number;
+        h1: number;
+        m5: number;
+    };
+    priceChange: {
+        m5: number;
+        h1: number;
+        h6: number;
+        h24: number;
+    };
+    liquidity: {
+        usd: number;
+        base: number;
+        quote: number;
+    };
+    fdv: number;
+    marketCap: number;
+    pairCreatedAt: number;
+    info: {
+        imageUrl: string;
+        websites: {
+            label: string;
+            url: string;
+        }[];
+        socials: {
+            type: string;
+            url: string;
+        }[];
+    };
+    boosts: {
+        active: number;
+    };
+}
+interface DexScreenerData {
+    schemaVersion: string;
+    pairs: DexScreenerPair[];
+}
+
+interface ProcessedTokenData {
+    security: TokenSecurityData;
+    tradeData: TokenTradeData;
+    holderDistributionTrend: string;
+    highValueHolders: Array<{
+        holderAddress: string;
+        balanceUsd: string;
+    }>;
+    recentTrades: boolean;
+    highSupplyHoldersCount: number;
+    dexScreenerData: DexScreenerData;
+    isDexScreenerListed: boolean;
+    isDexScreenerPaid: boolean;
+    tokenCodex: TokenCodex;
+}
 
 /**
  * Position tracking interface
@@ -121,7 +423,7 @@ function composeParameterContext(tool: Tool, state: State): string {
 }
 
 async function generateParameters(runtime: IAgentRuntime, context: string, tool: Tool): Promise<unknown> {
-    const { object } = await generateObjectV2({
+    const { object } = await generateObject({
         runtime,
         context,
         modelClass: ModelClass.LARGE,
@@ -195,7 +497,6 @@ const autonomousBuyAction: Action = {
     description: "Execute autonomous buy based on how much money it has in SOL",
     similes: ["TRADE", "AUTO_TRADE", "TRADE_SOLANA", "TRADE_SOL", "AUTONOMOUS"],
     examples: [],
-    autoStart: true,
     validate: async (runtime: IAgentRuntime, message: Memory) => {
         try {
             if (message.content?.source === "auto") {
@@ -293,12 +594,6 @@ const autonomousBuyAction: Action = {
                 content: { error: error.message }
             });
             return false;
-        }
-    },
-    cleanup: async (runtime: IAgentRuntime) => {
-        const intervalId = await runtime.cacheManager.get<number>("trading_interval_id");
-        if (intervalId) {
-            clearInterval(intervalId);
         }
     }
 };
@@ -446,17 +741,6 @@ async function evaluateNewTrades(
                             price: pair.priceUsd,
                             position: positions.get(pair.baseToken.address)
                         }
-                    });
-                }
-
-                // Tweet the trade
-                if (runtime.getSetting("DIAMONDHANDS_TWEET_BUY") || false) {
-                    await tweetTradeUpdate(runtime, {
-                        action: 'BUY',
-                        token: pair.baseToken.symbol,
-                        amount: positionSize,
-                        price: Number(pair.priceUsd),
-                        signature: tradeResult.signature
                     });
                 }
             } else {
@@ -793,7 +1077,7 @@ export async function getOnChainActions<TWalletClient extends WalletClient>({
     });
 
     // Auto-start autonomous buying
-    if (typeof AutoClient !== 'undefined' && AutoClient.isAutoClient) {
+    if (typeof AutoClient !== 'undefined') {
         elizaLogger.log("Auto-starting autonomous buying...");
         try {
             await autonomousBuyAction.handler(
@@ -801,7 +1085,7 @@ export async function getOnChainActions<TWalletClient extends WalletClient>({
                 { content: { source: "auto" } } as Memory,
                 undefined,
                 undefined,
-                (response) => elizaLogger.log("Auto-buy response:", response)
+                undefined
             );
         } catch (error) {
             elizaLogger.error("Failed to auto-start buying:", error);
@@ -835,56 +1119,6 @@ function decodeBase58(str: string): Uint8Array {
     }
 
     return new Uint8Array(bytes);
-}
-
-// Add at the top with other constants
-let cachedTwitterClient: typeof TwitterClientInterface | null = null;
-
-// Modify tweetTradeUpdate to use cached client
-async function tweetTradeUpdate(
-    runtime: IAgentRuntime,
-    params: {
-        action: 'BUY';
-        token: string;
-        amount: number;
-        price: number;
-        signature: string;
-        pnl?: number;
-        sellType?: string;
-    }
-): Promise<void> {
-    try {
-        const { action, token, amount, price, signature, pnl } = params;
-        const explorerUrl = `https://solscan.io/tx/${signature}`;
-
-        // Format tweet content
-        let content = '';
-        if (action === 'BUY') {
-            content = `🤖 Bought $${token}\n💰 ${amount.toFixed(3)} SOL @ $${price.toFixed(6)}\n🔗 tx: ${explorerUrl}`;
-        } else {
-            content = `${params.sellType || (pnl && pnl > 0 ? '🟢' : '🔴')} Sold $${token}\n💰 ${amount.toFixed(3)} SOL @ $${price.toFixed(6)}\n📈 PnL: ${pnl?.toFixed(2)}%\n🔗 tx: ${explorerUrl}`;
-        }
-
-        elizaLogger.log("Posting trade update:", content);
-
-        // Use cached client or initialize new one
-        if (!cachedTwitterClient) {
-            cachedTwitterClient = await TwitterClientInterface.start(runtime);
-        }
-
-        if (!cachedTwitterClient) {
-            throw new Error("Failed to initialize Twitter client");
-        }
-
-        const response = await cachedTwitterClient.post.client.twitterClient.sendTweet(content);
-        elizaLogger.log("Trade tweet posted successfully:", response);
-
-    } catch (error) {
-        elizaLogger.error("Failed to tweet trade update:", {
-            error: error instanceof Error ? error.message : error,
-            params
-        });
-    }
 }
 
 // Helper function to monitor existing positions
@@ -971,17 +1205,6 @@ interface TokenData extends ProcessedTokenData {
         ownerPercentage: number;
         top10HolderPercent: number;
     };
-    tradeData: {
-        unique_wallet_30m: number;
-        unique_wallet_history_30m: number;
-        unique_wallet_30m_change_percent: number;
-        unique_wallet_1h: number;
-        unique_wallet_history_1h: number;
-        unique_wallet_1h_change_percent: number;
-        unique_wallet_24h: number;
-        unique_wallet_history_24h: number;
-        unique_wallet_24h_change_percent: number;
-    };
 }
 
 interface TokenAnalysis {
@@ -1028,15 +1251,15 @@ async function analyzeToken(runtime: IAgentRuntime, tokenAddress: string): Promi
         // Use DexScreener data for analysis since trade data might be null
         const dexPair = processedData?.dexScreenerData?.pairs?.[0];
 
-        const analysis = {
+        const analysis : TokenAnalysis = {
             security: {
-                ownerBalance: processedData?.tokenSecurityData?.ownerBalance || '0',
-                creatorBalance: processedData?.tokenSecurityData?.creatorBalance || '0',
-                ownerPercentage: processedData?.tokenSecurityData?.ownerPercentage || 0,
-                top10HolderPercent: processedData?.tokenSecurityData?.top10HolderPercent || 0
+                ownerBalance: processedData?.security?.ownerBalance || '0',
+                creatorBalance: processedData?.security?.creatorBalance || '0',
+                ownerPercentage: processedData?.security?.ownerPercentage || 0,
+                top10HolderPercent: processedData?.security?.top10HolderPercent || 0
             },
             trading: {
-                price: dexPair?.priceUsd || 0,
+                price: parseFloat(dexPair?.priceUsd || '0'),
                 priceChange24h: dexPair?.priceChange?.h24 || 0,
                 volume24h: dexPair?.volume?.h24 || 0,
                 uniqueWallets24h: processedData?.tradeData?.unique_wallet_24h || 0,

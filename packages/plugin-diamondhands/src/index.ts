@@ -1,14 +1,14 @@
-import type { Plugin, IAgentRuntime, Memory } from "@ai16z/eliza";
+import type { Plugin, IAgentRuntime, Memory } from "@elizaos/core";
 import { getOnChainActions } from "./action";
-import { elizaLogger } from "@ai16z/eliza";
+import { elizaLogger } from "@elizaos/core";
 import {
     solanaPlugin,
     TokenProvider
-} from "@ai16z/plugin-solana";
+} from "@elizaos/plugin-solana";
 import { loadTokenAddresses } from "./tokenUtils";
 import { Connection, PublicKey } from "@solana/web3.js";
 import type { Chain, WalletClient, Signature, Balance } from "@goat-sdk/core";
-import { getTokenBalance } from "@ai16z/plugin-solana/src/providers/tokenUtils";
+import { getTokenBalance } from "@elizaos/plugin-solana/src/providers/tokenUtils";
 
 // Update Balance interface to include formatted
 interface ExtendedBalance extends Balance {

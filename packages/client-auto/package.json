@@ -5,8 +5,8 @@
   "type": "module",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@elizaos/plugin-diamondhands": "workspace:*",
     "@elizaos/core": "workspace:*",
+    "@elizaos/plugin-diamondhands": "workspace:*",
     "@types/body-parser": "1.19.5",
     "@types/cors": "2.8.17",
     "@types/express": "5.0.0",
